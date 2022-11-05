@@ -1,0 +1,15 @@
+/*!*****************************************************************************
+ * @file    applyhisto.comp
+ * @author  Owen Huang Wensong, w.huang, 390008220
+ * @date    05 NOV 2022
+ * @brief   
+ * 
+ * @par Copyright (C) 2022 DigiPen Institute of Technology. All rights reserved.
+*******************************************************************************/
+#version 450
+
+void main()
+{
+
+}
+

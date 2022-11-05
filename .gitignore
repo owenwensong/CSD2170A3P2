@@ -3,6 +3,9 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/master/VisualStudio.gitignore
 
+# run generated files
+reference_screenshot.ppm
+
 # User-specific files
 *.rsuser
 *.suo

@@ -1,0 +1,16 @@
+/*!*****************************************************************************
+ * @file    histogram.comp
+ * @author  Owen Huang Wensong, w.huang, 390008220
+ * @date    05 NOV 2022
+ * @brief   This is the implementation for creating the YUV model to histogram
+ *          from an input RGB image. The reason it is called histogram.comp
+ *          is due to the submission requirements requesting it to be.
+ * 
+ * @par Copyright (C) 2022 DigiPen Institute of Technology. All rights reserved.
+*******************************************************************************/
+#version 450
+
+void main()
+{
+
+}
