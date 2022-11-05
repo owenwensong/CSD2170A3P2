@@ -2,15 +2,32 @@
  * @file    histogram.comp
  * @author  Owen Huang Wensong, w.huang, 390008220
  * @date    05 NOV 2022
- * @brief   This is the implementation for creating the YUV model to histogram
- *          from an input RGB image. The reason it is called histogram.comp
- *          is due to the submission requirements requesting it to be.
+ * @brief   
  * 
  * @par Copyright (C) 2022 DigiPen Institute of Technology. All rights reserved.
 *******************************************************************************/
 #version 450
 
+layout (binding = 0, rgba8) uniform readonly image2D inRGB;
+layout (binding = 1, rgba8) uniform image2D outYUV;
+
+const mat3 convMat = mat3
+(
+  0.299, -0.169,  0.499, // col 0
+  0.587, -0.331, -0.418, // col 1
+  0.114,  0.499, -0.0813 // col 2
+);
+
+const vec3 convVec = vec3
+(
+  0.0, 0.5, 0.5
+);
+
 void main()
 {
-
+  ivec2 loc = ivec2(gl_GlobalInvocationID.xy);
+  vec4 tmp = imageLoad(inRGB, loc);
+  tmp.rgb = convMat * tmp.rgb + convVec;
+  imageStore(outYUV, loc, tmp);
+  // TODO: histogram on Y component
 }

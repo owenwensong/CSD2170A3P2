@@ -8,8 +8,24 @@
 *******************************************************************************/
 #version 450
 
+layout (binding = 0, rgba8) uniform readonly image2D inYUV;
+layout (binding = 1, rgba8) uniform image2D outRGB;
+
+const mat3 convMat = mat3
+(
+  1.0, 1.0, 1.0,      // col 0
+  0.0, -0.344, 1.772, // col 1
+  1.402, -0.714, 0.0  // col 2
+);
+
 void main()
 {
-
+  ivec2 loc = ivec2(gl_GlobalInvocationID.xy);
+  vec4 tmp = imageLoad(inYUV, loc);
+  //tmp.r // TODO: correct color 
+  tmp.g -= 0.5;
+  tmp.b -= 0.5;
+  tmp.rgb = convMat * tmp.rgb;
+  imageStore(outRGB, loc, tmp);
 }
 
