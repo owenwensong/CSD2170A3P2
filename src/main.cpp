@@ -311,7 +311,7 @@ public:
 
     // common wait for previous compute, forgot it's not C++20 for named initialization
     VkBufferMemoryBarrier bufferMemoryBarrier{ vks::initializers::bufferMemoryBarrier() };
-    bufferMemoryBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+    bufferMemoryBarrier.srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT; // first time for filling buffer
     bufferMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
     bufferMemoryBarrier.buffer = m_histoComputeSSBO.buffer;
     bufferMemoryBarrier.offset = 0;
@@ -319,6 +319,10 @@ public:
 
     // clear histogram data to 0 (uint 0 all good, float 0 also 0 so all good);
     vkCmdFillBuffer(compute.commandBuffer, m_histoComputeSSBO.buffer, m_histoComputeSSBO.descriptor.offset, m_histoComputeSSBO.descriptor.range, 0);
+
+    vkCmdPipelineBarrier(compute.commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, nullptr, 1, &bufferMemoryBarrier, 0, nullptr);
+
+    bufferMemoryBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT; // for the other synchronizations
 
     // histogram.comp
     vkCmdBindPipeline(compute.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, compute.pipelines[0]);
@@ -330,7 +334,7 @@ public:
     // cdfScan.comp
     vkCmdBindPipeline(compute.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, compute.pipelines[1]);
     vkCmdBindDescriptorSets(compute.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, compute.pipelineLayout, 0, 1, &compute.descriptorSet, 0, 0);
-    vkCmdDispatch(compute.commandBuffer, 256, 1, 1);
+    vkCmdDispatch(compute.commandBuffer, 1, 1, 1);
 
     vkCmdPipelineBarrier(compute.commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, nullptr, 1, &bufferMemoryBarrier, 0, nullptr);
 
@@ -553,8 +557,9 @@ public:
 
     // setup descriptor and bind are called inside already
     // ignoring template 6: Create a function to prepare storage buffers that will be used in compute shaders and update/initialize the content before using
-    // SSBO initialization will happen in the first compute stage
-    vulkanDevice->createBuffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &m_histoComputeSSBO, sizeof(histoSSBO));
+    // Transfer destination bit set for initialization by vkCmdFillBuffer
+    // The VK_BUFFER_USAGE_TRANSFER_DST_BIT must be specified in usage of VkBufferCreateInfo in order for the buffer to be compatible with vkCmdFillBuffer.
+    vulkanDevice->createBuffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &m_histoComputeSSBO, sizeof(histoSSBO));
 
     // Create compute pipeline
     // Compute pipelines are created separate from graphics pipelines even if they use the same queue

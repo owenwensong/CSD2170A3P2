@@ -2,7 +2,7 @@
  * @file    applyhisto.comp
  * @author  Owen Huang Wensong, w.huang, 390008220
  * @date    05 NOV 2022
- * @brief   
+ * @brief   final color correction based on CDF value
  * 
  * @par Copyright (C) 2022 DigiPen Institute of Technology. All rights reserved.
 *******************************************************************************/
@@ -17,27 +17,25 @@ struct histoSSBO
 
 layout (local_size_x = 16, local_size_y = 16) in;
 layout (binding = 0, rgba8) uniform readonly image2D inRGB;
-layout (binding = 1, rgba8) uniform image2D outYUV;
+layout (binding = 1, rgba8) uniform image2D outRGB;
 
 // https://www.khronos.org/opengl/wiki/Interface_Block_(GLSL)
-layout (std430, binding = 2) buffer OutHisto
+layout (std430, binding = 2) buffer InHisto
 {
   histoSSBO m_Data;
-} outHisto;
+} inHisto;
 
-// const mat3 convMat = mat3
-// (
-//   0.299, -0.169,  0.499, // col 0
-//   0.587, -0.331, -0.418, // col 1
-//   0.114,  0.499, -0.0813 // col 2
-// );
+// Assumption made: 16 x 16 block size so minimum local invocation reaches 256
+shared float s_CDF[256];
 
-// const vec3 convVec = vec3
-// (
-//   0.0, 0.5, 0.5
-// );
+const mat3 RGB2YUV = mat3
+(
+  0.299, -0.169,  0.499, // col 0
+  0.587, -0.331, -0.418, // col 1
+  0.114,  0.499, -0.0813 // col 2
+);
 
-const mat3 convMat = mat3
+const mat3 YprimeUV2RGB = mat3
 (
   1.0, 1.0, 1.0,      // col 0
   0.0, -0.344, 1.772, // col 1
@@ -46,7 +44,29 @@ const mat3 convMat = mat3
 
 void main()
 {
-  ivec2 loc = ivec2(gl_GlobalInvocationID.xy);
-  // TODO: apply
+  float cdfMin = inHisto.m_Data.m_CDF[0];
+
+  barrier(); // let all get CDF[0] before carrying on
+
+  // initialize shared memory
+  s_CDF[gl_LocalInvocationIndex] = inHisto.m_Data.m_CDF[gl_LocalInvocationIndex];
+
+  memoryBarrierShared();  // ensure s_CDF fully initialized
+
+  ivec2 imgLoc = ivec2(gl_GlobalInvocationID.xy);
+  vec4 imgCol = imageLoad(inRGB, imgLoc);
+  
+  // convert to YUV
+  imgCol.rgb = RGB2YUV * imgCol.rgb, 0.0, 1.0;
+  imgCol.gb += 128.0;
+
+  // color correction
+  imgCol.r = clamp((s_CDF[clamp(int(255.0f * imgCol.r), 0, 255)] - cdfMin) / (1.0 - cdfMin), 0.0, 1.0);
+  
+  // convert to RGB
+  imgCol.gb -= 128.0;
+  imgCol.rgb = YprimeUV2RGB * imgCol.rgb, 0.0, 1.0;
+
+  imageStore(outRGB, imgLoc, imgCol);
 }
 
