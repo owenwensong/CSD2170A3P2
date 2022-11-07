@@ -317,6 +317,9 @@ public:
     bufferMemoryBarrier.offset = 0;
     bufferMemoryBarrier.size = m_histoComputeSSBO.descriptor.range;
 
+    // clear histogram data to 0 (uint 0 all good, float 0 also 0 so all good);
+    vkCmdFillBuffer(compute.commandBuffer, m_histoComputeSSBO.buffer, m_histoComputeSSBO.descriptor.offset, m_histoComputeSSBO.descriptor.range, 0);
+
     // histogram.comp
     vkCmdBindPipeline(compute.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, compute.pipelines[0]);
     vkCmdBindDescriptorSets(compute.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, compute.pipelineLayout, 0, 1, &compute.descriptorSet, 0, 0);
