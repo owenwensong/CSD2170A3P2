@@ -38,6 +38,7 @@ class VulkanExample : public VkAppBase
 private:
   vks::Texture2D textureColorMap;
   vks::Texture2D textureComputeTarget;
+  vks::Buffer    m_histoComputeSSBO;
 public:
   struct {
     VkPipelineVertexInputStateCreateInfo inputState;
@@ -116,6 +117,7 @@ public:
 
     textureColorMap.destroy();
     textureComputeTarget.destroy();
+    m_histoComputeSSBO.destroy();
   }
 
   // Prepare a texture target that is used to store compute shader calculations
@@ -307,12 +309,32 @@ public:
 
     VK_CHECK_RESULT(vkBeginCommandBuffer(compute.commandBuffer, &cmdBufInfo));
 
-    vkCmdBindPipeline(compute.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, compute.pipelines[compute.pipelineIndex]);
+    // common wait for previous compute, forgot it's not C++20 for named initialization
+    VkBufferMemoryBarrier bufferMemoryBarrier{ vks::initializers::bufferMemoryBarrier() };
+    bufferMemoryBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+    bufferMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    bufferMemoryBarrier.buffer = m_histoComputeSSBO.buffer;
+    bufferMemoryBarrier.offset = 0;
+    bufferMemoryBarrier.size = m_histoComputeSSBO.descriptor.range;
+
+    // histogram.comp
+    vkCmdBindPipeline(compute.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, compute.pipelines[0]);
     vkCmdBindDescriptorSets(compute.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, compute.pipelineLayout, 0, 1, &compute.descriptorSet, 0, 0);
-    //groupCountX is the number of local workgroups to dispatch in the X dimension.
-    //groupCountY is the number of local workgroups to dispatch in the Y dimension.
-    //groupCountZ is the number of local workgroups to dispatch in the Z dimension.
     vkCmdDispatch(compute.commandBuffer, (textureComputeTarget.width + 15)/ 16, (textureComputeTarget.height + 15) / 16, 1);
+
+    vkCmdPipelineBarrier(compute.commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, nullptr, 1, &bufferMemoryBarrier, 0, nullptr);
+
+    // cdfScan.comp
+    vkCmdBindPipeline(compute.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, compute.pipelines[1]);
+    vkCmdBindDescriptorSets(compute.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, compute.pipelineLayout, 0, 1, &compute.descriptorSet, 0, 0);
+    vkCmdDispatch(compute.commandBuffer, 256, 1, 1);
+
+    vkCmdPipelineBarrier(compute.commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, nullptr, 1, &bufferMemoryBarrier, 0, nullptr);
+
+    // applyhisto.comp
+    vkCmdBindPipeline(compute.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, compute.pipelines[2]);
+    vkCmdBindDescriptorSets(compute.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, compute.pipelineLayout, 0, 1, &compute.descriptorSet, 0, 0);
+    vkCmdDispatch(compute.commandBuffer, (textureComputeTarget.width + 15) / 16, (textureComputeTarget.height + 15) / 16, 1);
 
     vkEndCommandBuffer(compute.commandBuffer);
   }
@@ -526,6 +548,11 @@ public:
     // Get a compute queue from the device
     vkGetDeviceQueue(device, vulkanDevice->queueFamilyIndices.compute, 0, &compute.queue);
 
+    // setup descriptor and bind are called inside already
+    // ignoring template 6: Create a function to prepare storage buffers that will be used in compute shaders and update/initialize the content before using
+    // SSBO initialization will happen in the first compute stage
+    vulkanDevice->createBuffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &m_histoComputeSSBO, sizeof(histoSSBO));
+
     // Create compute pipeline
     // Compute pipelines are created separate from graphics pipelines even if they use the same queue
 
@@ -534,6 +561,8 @@ public:
       vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 0),
       // Binding 1: Output image (write)
       vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 1),
+      // Binding 2: Histogram SSBO
+      vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 2)
     };
 
     VkDescriptorSetLayoutCreateInfo descriptorLayout = vks::initializers::descriptorSetLayoutCreateInfo(setLayoutBindings);
@@ -550,7 +579,8 @@ public:
     VK_CHECK_RESULT(vkAllocateDescriptorSets(device, &allocInfo, &compute.descriptorSet));
     std::vector<VkWriteDescriptorSet> computeWriteDescriptorSets = {
       vks::initializers::writeDescriptorSet(compute.descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 0, &textureColorMap.descriptor),
-      vks::initializers::writeDescriptorSet(compute.descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, &textureComputeTarget.descriptor)
+      vks::initializers::writeDescriptorSet(compute.descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, &textureComputeTarget.descriptor),
+      vks::initializers::writeDescriptorSet(compute.descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 2, &m_histoComputeSSBO.descriptor)
     };
     vkUpdateDescriptorSets(device, computeWriteDescriptorSets.size(), computeWriteDescriptorSets.data(), 0, NULL);
 
@@ -559,7 +589,7 @@ public:
       vks::initializers::computePipelineCreateInfo(compute.pipelineLayout, 0);
 
     // One pipeline for each effect
-    shaderNames = { "emboss" };
+    shaderNames = { "histogram", "cdfScan", "applyhisto" };
     for (auto& shaderName : shaderNames) {
       std::string fileName = getShadersPath() + "computeshader/" + shaderName + ".comp.spv";
       computePipelineCreateInfo.stage = loadShader(fileName, VK_SHADER_STAGE_COMPUTE_BIT);
@@ -615,6 +645,7 @@ public:
     memcpy(uniformBufferVS.mapped, &uboVS, sizeof(uboVS));
   }
 
+  // Ignoring template 7: using in-queue execution barriers
   void draw()
   {
     // Wait for rendering finished
@@ -649,6 +680,7 @@ public:
     VkAppBase::submitFrame();
   }
 
+  // Ignoring template 8: changes made directly to prepareCompute
   void prepare()
   {
     VkAppBase::prepare();

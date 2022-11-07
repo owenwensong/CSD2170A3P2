@@ -8,7 +8,25 @@
 *******************************************************************************/
 #version 450
 
+// Struct of Array format for better memory locality
+struct histoSSBO
+{
+	uint  m_Bin[256];
+	float m_CDF[256];
+};
+
+layout (local_size_x = 16, local_size_y = 16) in;
+layout (binding = 0, rgba8) uniform readonly image2D inRGB;
+layout (binding = 1, rgba8) uniform image2D outYUV;
+
+// https://www.khronos.org/opengl/wiki/Interface_Block_(GLSL)
+layout (std430, binding = 2) buffer OutHisto
+{
+  histoSSBO m_Data;
+} outHisto;
+
 void main()
 {
-
+  outHisto.m_Data.m_CDF[gl_GlobalInvocationID.x] = 0.0;
+  // TODO: scan
 }

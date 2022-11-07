@@ -8,26 +8,26 @@
 *******************************************************************************/
 #version 450
 
+// Struct of Array format for better memory locality
+struct histoSSBO
+{
+	uint  m_Bin[256];
+	float m_CDF[256];
+};
+
+layout (local_size_x = 16, local_size_y = 16) in;
 layout (binding = 0, rgba8) uniform readonly image2D inRGB;
 layout (binding = 1, rgba8) uniform image2D outYUV;
 
-const mat3 convMat = mat3
-(
-  0.299, -0.169,  0.499, // col 0
-  0.587, -0.331, -0.418, // col 1
-  0.114,  0.499, -0.0813 // col 2
-);
-
-const vec3 convVec = vec3
-(
-  0.0, 0.5, 0.5
-);
+// https://www.khronos.org/opengl/wiki/Interface_Block_(GLSL)
+layout (std430, binding = 2) buffer OutHisto
+{
+  histoSSBO m_Data;
+} outHisto;
 
 void main()
 {
   ivec2 loc = ivec2(gl_GlobalInvocationID.xy);
-  vec4 tmp = imageLoad(inRGB, loc);
-  tmp.rgb = convMat * tmp.rgb + convVec;
-  imageStore(outYUV, loc, tmp);
+  float y = dot(imageLoad(inRGB, loc).rgb, vec3(0.299, 0.587, 0.114));
   // TODO: histogram on Y component
 }
