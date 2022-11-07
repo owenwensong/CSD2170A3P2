@@ -1,17 +1,21 @@
-/*
-* Vulkan Example -
-*
-* Copyright (C) 2016 by Sascha Willems - www.saschawillems.de
-*
-* This code is licensed under the MIT license (MIT) (http://opensource.org/licenses/MIT)
-*/
-
-/*
-* Vulkan Example - Compute shader image processing
-*
-* Modified by William Zheng
-*
-*/
+/*!*****************************************************************************
+ * @file    main.cpp
+ * @author  Sascha Willems
+ * @co-author  William Zheng
+ * @co-author  Owen Huang Wensong, w.huang, 390008220
+ * @date    05 NOV 2022
+ * @brief   entry point of the program & vulkan example implementation
+ *          This code is licensed under the MIT license (MIT) 
+ *          (http://opensource.org/licenses/MIT)
+ * 
+ *          Modifications by Owen: 
+ *            buildComputeCommandBuffer lines 316-348
+ *            setupDescriptorPool       lines 421-422
+ *            prepareCompute            lines 562-566, 576-577, 595, 603-604
+ *            
+ *
+ * @par Copyright (C) 2016 by Sascha Willems - www.saschawillems.de
+*******************************************************************************/
 
 #include "appBase.h"
 #define GLFW_INCLUDE_VULKAN
