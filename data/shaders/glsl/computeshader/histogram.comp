@@ -37,7 +37,7 @@ void main()
   ivec2 imgLoc = ivec2(gl_GlobalInvocationID.xy);
   float y = 255.0 * dot(imageLoad(inRGB, imgLoc).rgb, vec3(0.299, 0.587, 0.114));
 
-  memoryBarrierShared();  // ensure s_Bin fully initialized
+  memoryBarrierShared();  // ensure s_Bin fully initialized, don't care img
   
   // bounds check accounts for out of bounds threads skewing black pixel results
   ivec2 imgSize = imageSize(inRGB);

@@ -57,15 +57,13 @@ void main()
   vec4 imgCol = imageLoad(inRGB, imgLoc);
   
   // convert to YUV
-  imgCol.rgb = RGB2YUV * imgCol.rgb, 0.0, 1.0;
-  imgCol.gb += 128.0;
+  imgCol.rgb = RGB2YUV * imgCol.rgb;
 
   // color correction
-  imgCol.r = clamp((s_CDF[clamp(int(255.0f * imgCol.r), 0, 255)] - cdfMin) / (1.0 - cdfMin), 0.0, 1.0);
+  imgCol.r = clamp((s_CDF[clamp(int(255.0 * imgCol.r), 0, 255)] - cdfMin) / (1.0 - cdfMin), 0.0, 1.0);
   
   // convert to RGB
-  imgCol.gb -= 128.0;
-  imgCol.rgb = YprimeUV2RGB * imgCol.rgb, 0.0, 1.0;
+  imgCol.rgb = YprimeUV2RGB * imgCol.rgb;
 
   imageStore(outRGB, imgLoc, imgCol);
 }
