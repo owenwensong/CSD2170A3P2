@@ -44,15 +44,11 @@ const mat3 YprimeUV2RGB = mat3
 
 void main()
 {
-  float cdfMin = inHisto.m_Data.m_CDF[0];
-
-  barrier(); // let all get CDF[0] before carrying on
-
-  // initialize shared memory
   s_CDF[gl_LocalInvocationIndex] = inHisto.m_Data.m_CDF[gl_LocalInvocationIndex];
-
+ 
   memoryBarrierShared();  // ensure s_CDF fully initialized
 
+  float cdfMin = s_CDF[0];
   ivec2 imgLoc = ivec2(gl_GlobalInvocationID.xy);
   vec4 imgCol = imageLoad(inRGB, imgLoc);
   
