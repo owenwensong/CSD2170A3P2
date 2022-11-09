@@ -46,7 +46,7 @@ void main()
 {
   s_CDF[gl_LocalInvocationIndex] = inHisto.m_Data.m_CDF[gl_LocalInvocationIndex];
  
-  memoryBarrierShared();  // ensure s_CDF fully initialized
+  barrier();  // ensure s_CDF fully initialized
 
   float cdfMin = s_CDF[0];
   ivec2 imgLoc = ivec2(gl_GlobalInvocationID.xy);
