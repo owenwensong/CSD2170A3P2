@@ -39,8 +39,7 @@ void main()
   {
     int idx = threadIdx + i * blockSize;
     s_AccumulateBin[idx] = outHisto.m_Data.m_Bin[idx];
-    memoryBarrierShared();// ensure s_AccumulateBin initialized and
-    barrier();            // execution barrier for coalesced access
+    barrier();// ensure s_AccumulateBin initialized and coalesced access
   }
 
   for (int stride = 1; stride < 256; stride *= 2)
