@@ -1,5 +1,5 @@
 /*!*****************************************************************************
- * @file    cdfScan.comp
+ * @file    cdfscan.comp
  * @author  Owen Huang Wensong, w.huang, 390008220
  * @date    05 NOV 2022
  * @brief   Brent-Kung parallel scan implementation for CDF values
@@ -39,7 +39,8 @@ void main()
   {
     int idx = threadIdx + i * blockSize;
     s_AccumulateBin[idx] = outHisto.m_Data.m_Bin[idx];
-    memoryBarrierShared();// ensure s_AccumulateBin initialized AND coalesced access
+    memoryBarrierShared();// ensure s_AccumulateBin initialized and
+    barrier();            // execution barrier for coalesced access
   }
 
   for (int stride = 1; stride < 256; stride *= 2)
@@ -66,14 +67,12 @@ void main()
     }
   }
 
-  barrier();  // ensure s_AccumulateBin accumulated
-
   // finalize and output CDF calculation
   ivec2 imgSize = imageSize(inRGB);
   float CDFMul = 1.0 / float(imgSize.x * imgSize.y);
   for (int i = 0; i < 2; ++i)
   {
-    memoryBarrierShared();// for coalesced access
+    barrier();// ensure s_AccumulateBin accumulated and coalesced access
     int idx = threadIdx + i * blockSize;
     outHisto.m_Data.m_CDF[idx] = CDFMul * s_AccumulateBin[idx];
   }
